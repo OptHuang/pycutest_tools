@@ -32,20 +32,15 @@ jobs:
         with:
           python-version: '3.x'
 
-      - name: Setup CUTEst + PyCUTEst
+      - name: Install CUTEst via custom script
         run: |
-          brew tap optimizers/cutest
-          brew install cutest
-          brew install mastsif
+          chmod +x ./install_cutest_mac.sh
+          ./install_cutest_mac.sh
+          source ~/.bashrc
 
-          for f in mastsif sifdecode cutest
-          do
-            source "$(brew --prefix "$f")/$f.bashrc"
-          done
-
-          echo "CUTEst path: $CUTEST"
-          echo "MASTSIF path: $MASTSIF"
-
+      - name: Install PyCUTEst
+        run: |
+          python -m pip install --upgrade pip
           python -m pip install pycutest
       
       - name: Checkout OptiProfiler
