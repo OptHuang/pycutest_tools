@@ -24,22 +24,29 @@ jobs:
 
     steps:
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.x'
 
-      - name: Install pycutest
+      - name: Setup CUTEst + PyCUTEst
         run: |
-          brew tap optimizers/cutest &&
+          brew tap optimizers/cutest
           brew install cutest
-          sudo ln -s $GITHUB_WORKSPACE/pycutest/tests/problems /opt/homebrew/opt/mastsif &&
-          mkdir $GITHUB_WORKSPACE/pycutest_cache
-          python -m pip install .
-          python -m pip install pycutest
+          brew install mastsif
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
+          for f in archdefs mastsif sifdecode cutest
+          do
+            source "$(brew --prefix "$f")/$f.bashrc"
+          done
+
+          echo "CUTEst path: $CUTEST"
+          echo "MASTSIF path: $MASTSIF"
+
+          python -m pip install pycutest
       
       - name: Checkout OptiProfiler
         uses: actions/checkout@v4
