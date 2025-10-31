@@ -49,11 +49,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Resolve CUTEst env from Homebrew (with compatibility shim)
+      - name: Resolve CUTEst env from Homebrew (with full compatibility shim)
         shell: bash
         run: |
           set -euo pipefail
-          # 关闭匿名统计（可选；参考 Homebrew 文档）
           export HOMEBREW_NO_ANALYTICS=1
 
           # 1) 定位前缀
@@ -67,50 +66,65 @@ jobs:
             brew install cutest
             CUTEST_PREFIX="$(brew --prefix cutest)"
           fi
-          CUTEST_PATH="$CUTEST_PREFIX"  # Homebrew 的 opt 路径
-          if [ ! -d "$CUTEST_PATH/lib" ]; then
-            echo "CUTEST lib directory not found under $CUTEST_PATH"
-            exit 1
-          fi
+          CUTEST_PATH="$CUTEST_PREFIX"
+          [ -d "$CUTEST_PATH/lib" ] || { echo "CUTEST lib directory not found under $CUTEST_PATH"; exit 1; }
 
-          # 2) SIFDECODE/MASTSIF 路径
+          # 2) SIFDECODE/MASTSIF
           SIFDECODE_PATH=""
           [ -n "$SIFDECODE_PREFIX" ] && [ -d "$SIFDECODE_PREFIX/share/sifdecode" ] && SIFDECODE_PATH="$SIFDECODE_PREFIX/share/sifdecode"
           MASTSIF_PATH=""
           [ -n "$MASTSIF_PREFIX" ] && [ -d "$MASTSIF_PREFIX/share/mastsif" ] && MASTSIF_PATH="$MASTSIF_PREFIX/share/mastsif"
 
-          # 3) 兼容层：若 CUTEST/lib 下没有任何子目录，则创建一个，并链接到 double 精度库
-          has_subdir="$(find "$CUTEST_PATH/lib" -mindepth 1 -maxdepth 1 -type d | head -n1 || true)"
+          # 3) 兼容层
           MYARCH_VALUE=""
-          if [ -z "$has_subdir" ]; then
-            compat_dir="$CUTEST_PATH/lib/homebrew"
-            mkdir -p "$compat_dir"
-            # 选择 double 精度作为默认
+          # 若 lib 下没有任何子目录，则创建 $CUTEST/lib/homebrew 并链接 libcutest.{a,dylib}
+          has_lib_subdir="$(find "$CUTEST_PATH/lib" -mindepth 1 -maxdepth 1 -type d | head -n1 || true)"
+          compat_lib_dir="$CUTEST_PATH/lib/homebrew"
+          if [ -z "$has_lib_subdir" ]; then
+            mkdir -p "$compat_lib_dir"
+            # 默认用 double 精度
             if [ -f "$CUTEST_PATH/lib/libcutest_double.dylib" ]; then
-              ln -sfn ../libcutest_double.dylib "$compat_dir/libcutest.dylib"
+              ln -sfn ../libcutest_double.dylib "$compat_lib_dir/libcutest.dylib"
             fi
             if [ -f "$CUTEST_PATH/lib/libcutest_double.a" ]; then
-              ln -sfn ../libcutest_double.a "$compat_dir/libcutest.a"
+              ln -sfn ../libcutest_double.a "$compat_lib_dir/libcutest.a"
             fi
-            # 兜底：若 double 不存在，尝试 single
-            if [ ! -e "$compat_dir/libcutest.dylib" ] && [ -f "$CUTEST_PATH/lib/libcutest_single.dylib" ]; then
-              ln -sfn ../libcutest_single.dylib "$compat_dir/libcutest.dylib"
+            # 兜底 single
+            if [ ! -e "$compat_lib_dir/libcutest.dylib" ] && [ -f "$CUTEST_PATH/lib/libcutest_single.dylib" ]; then
+              ln -sfn ../libcutest_single.dylib "$compat_lib_dir/libcutest.dylib"
             fi
-            if [ ! -e "$compat_dir/libcutest.a" ] && [ -f "$CUTEST_PATH/lib/libcutest_single.a" ]; then
-              ln -sfn ../libcutest_single.a "$compat_dir/libcutest.a"
+            if [ ! -e "$compat_lib_dir/libcutest.a" ] && [ -f "$CUTEST_PATH/lib/libcutest_single.a" ]; then
+              ln -sfn ../libcutest_single.a "$compat_lib_dir/libcutest.a"
             fi
-
-            # 校验
-            if [ ! -e "$compat_dir/libcutest.dylib" ] && [ ! -e "$compat_dir/libcutest.a" ]; then
-              echo "Failed to create compatibility symlinks in $compat_dir"
+            if [ ! -e "$compat_lib_dir/libcutest.dylib" ] && [ ! -e "$compat_lib_dir/libcutest.a" ]; then
+              echo "Failed to create lib compatibility symlinks in $compat_lib_dir"
               ls -la "$CUTEST_PATH/lib" || true
               exit 1
             fi
-
             MYARCH_VALUE="homebrew"
           else
-            # 若原本就有子目录，沿用第一个即可
-            MYARCH_VALUE="$(basename "$has_subdir")"
+            MYARCH_VALUE="$(basename "$has_lib_subdir")"
+          fi
+
+          # 也为 modules 建立同名子目录（很多旧版 pycutest 会检查 modules/$MYARCH）
+          compat_mod_dir="$CUTEST_PATH/modules/$MYARCH_VALUE"
+          if [ ! -d "$compat_mod_dir" ]; then
+            mkdir -p "$compat_mod_dir"
+            # 将顶层的 .mod 文件都链接进去（保留相对路径，便于 Cellar 版本更新）
+            find "$CUTEST_PATH/modules" -maxdepth 1 -type f -name "*.mod" -print0 | while IFS= read -r -d '' f; do
+              base="$(basename "$f")"
+              ln -sfn "../$base" "$compat_mod_dir/$base"
+            done
+          fi
+
+          # 可选：有些脚本也会探测 include/$MYARCH；做个软链接目录，增强兼容性（不做也多数可通过）
+          compat_inc_dir="$CUTEST_PATH/include/$MYARCH_VALUE"
+          if [ ! -d "$compat_inc_dir" ]; then
+            mkdir -p "$compat_inc_dir"
+            find "$CUTEST_PATH/include" -maxdepth 1 -type f -print0 | while IFS= read -r -d '' f; do
+              base="$(basename "$f")"
+              ln -sfn "../$base" "$compat_inc_dir/$base"
+            done
           fi
 
           # 4) 持久化环境变量
@@ -126,12 +140,16 @@ jobs:
           echo "  SIFDECODE=${SIFDECODE_PATH:-<empty>}"
           echo "  MASTSIF=${MASTSIF_PATH:-<empty>}"
           echo "  MYARCH=$MYARCH_VALUE"
+          echo "Listings for debug:"
+          ls -la "$CUTEST_PATH/lib" || true
+          ls -la "$CUTEST_PATH/lib/$MYARCH_VALUE" || true
+          ls -la "$CUTEST_PATH/modules" || true
+          ls -la "$CUTEST_PATH/modules/$MYARCH_VALUE" || true
 
-          # 编译期可能需要 gfortran
+          # gfortran（若无）
           if ! command -v gfortran &>/dev/null; then
             brew install gcc
           fi
-
       - name: Run Python script
         shell: bash
         run: |
