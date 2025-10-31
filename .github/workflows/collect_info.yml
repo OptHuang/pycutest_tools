@@ -49,41 +49,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Prepare CUTEst env for subsequent steps (persist to GITHUB_ENV)
-        shell: bash
-        run: |
-          set -euo pipefail
-          for f in archdefs mastsif sifdecode cutest; do
-            rc="$(brew --prefix "$f")/$f.bashrc"
-            if [ -f "$rc" ]; then
-              # shellcheck disable=SC1090
-              source "$rc"
-            fi
-          done
-          CUTEST_PREFIX="$(brew --prefix cutest)"
-          first_arch="$(find "$CUTEST_PREFIX/lib" -mindepth 1 -maxdepth 1 -type d -print -quit || true)"
-          if [ -z "$first_arch" ]; then
-            echo "Cannot detect MYARCH from $CUTEST_PREFIX/lib"
-            exit 1
-          fi
-          MYARCH_DETECTED="$(basename "$first_arch")"
-
-          echo "CUTEST=$CUTEST"       >> "$GITHUB_ENV"
-          echo "SIFDECODE=$SIFDECODE" >> "$GITHUB_ENV"
-          echo "MASTSIF=$MASTSIF"     >> "$GITHUB_ENV"
-          echo "MYARCH=$MYARCH_DETECTED" >> "$GITHUB_ENV"
-
-          echo "Detected CUTEST env:"
-          echo "  CUTEST=$CUTEST"
-          echo "  SIFDECODE=$SIFDECODE"
-          echo "  MASTSIF=$MASTSIF"
-          echo "  MYARCH=$MYARCH_DETECTED"
-
       - name: Run Python script
         shell: bash
         run: |
           set -euo pipefail
-          for f in archdefs mastsif sifdecode cutest; do
+
+          # Source CUTEst-related bashrc files
+          for f in mastsif sifdecode cutest; do
             rc="$(brew --prefix "$f")/$f.bashrc"
             if [ -f "$rc" ]; then
               # shellcheck disable=SC1090
@@ -91,21 +63,18 @@ jobs:
             fi
           done
 
-          if [ -z "${MYARCH:-}" ]; then
-            CUTEST_PREFIX="$(brew --prefix cutest)"
-            first_arch="$(find "$CUTEST_PREFIX/lib" -mindepth 1 -maxdepth 1 -type d -print -quit || true)"
+          # Set MYARCH if not set
+          if [ -z "${MYARCH:-}" ] && [ -n "${CUTEST:-}" ] && [ -d "$CUTEST/lib" ]; then
+            first_arch="$(find "$CUTEST/lib" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | head -n1 || true)"
             if [ -n "$first_arch" ]; then
-              export MYARCH="$(basename "$first_arch")"
-            else
-              echo "Failed to auto-detect MYARCH under $CUTEST_PREFIX/lib"
-              exit 1
+              export MYARCH="$first_arch"
             fi
           fi
 
-          echo "Using CUTEST=$CUTEST"
-          echo "Using SIFDECODE=$SIFDECODE"
-          echo "Using MASTSIF=$MASTSIF"
-          echo "Using MYARCH=$MYARCH"
+          echo "Using CUTEST=${CUTEST:-}"
+          echo "Using SIFDECODE=${SIFDECODE:-}"
+          echo "Using MASTSIF=${MASTSIF:-}"
+          echo "Using MYARCH=${MYARCH:-}"
 
           python -m p_getInfo
 
