@@ -58,19 +58,14 @@ jobs:
 
       - name: Run Python script
         run: |
-          echo "Loading CUTEst environment..."
-          for f in mastsif sifdecode cutest
+          for f in archdefs mastsif sifdecode cutest
           do
-            source "$(brew --prefix "$f")/$f.bashrc"
+            rc="$(brew --prefix "$f")/$f.bashrc"
+            if [ -f "$rc" ]; then
+              source "$rc"
+            fi
           done
-          # CUTEst architecture (for gfortran)
           export MYARCH=pc64.mac.gfo
-          export CUTEST=$(brew --prefix cutest)
-          export MASTSIF=$(brew --prefix mastsif)
-
-          echo "CUTEST=$CUTEST"
-          echo "MYARCH=$MYARCH"
-
           python -m p_getInfo
           
       - name: Upload Python artifacts
