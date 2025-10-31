@@ -1,0 +1,68 @@
+name: Collect Info
+
+# This workflow do the following:
+# 1. Checkout the repository
+# 2. Git clone inside the repository: git clone --recurse-submodules git@github.com:optiprofiler/optiprofiler.git --branch python
+# 3. Go to this repository root and run python script 's_get_para.py'
+# 4. Upload 'probinfo_pycutest.csv', 'probinfo_pycutest.mat','probinfo_pycutest.txt', 'feasibility_pycutest.txt', and 'log_pycutest.txt' as artifacts
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 360
+    # runs-on: self-hosted
+    # timeout-minutes: 1440
+
+    # strategy:
+    #     matrix:
+    #         language: [python]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Checkout OptiProfiler
+        uses: actions/checkout@v4
+        with:
+          repository: optiprofiler/optiprofiler
+          path: optiprofiler
+          submodules: recursive 
+          ref: python
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install pycutest
+        run: |
+          brew tap optimizers/cutest &&
+          brew install cutest --without-single
+          sudo ln -s $GITHUB_WORKSPACE/pycutest/tests/problems /opt/homebrew/opt/mastsif &&
+          mkdir $GITHUB_WORKSPACE/pycutest_cache
+          python -m pip install .
+          python -m pip install pycutest
+
+      - name: Install Python dependencies
+        run: |
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+
+      - name: Run Python script
+        run: |
+          python -m p_getInfo
+          
+      - name: Upload Python artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: probinfo-files-pycutest
+          path: |
+            probinfo_pycutest.csv
+            feasibility_pycutest.txt
+            timeout_problems_pycutest.txt
+            log_pycutest.txt
