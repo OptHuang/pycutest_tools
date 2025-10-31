@@ -53,11 +53,24 @@ jobs:
 
       - name: Install Python dependencies
         run: |
-            python -m pip install --upgrade pip
-            pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Run Python script
         run: |
+          echo "Loading CUTEst environment..."
+          for f in mastsif sifdecode cutest
+          do
+            source "$(brew --prefix "$f")/$f.bashrc"
+          done
+          # CUTEst architecture (for gfortran)
+          export MYARCH=pc64.mac.gfo
+          export CUTEST=$(brew --prefix cutest)
+          export MASTSIF=$(brew --prefix mastsif)
+
+          echo "CUTEST=$CUTEST"
+          echo "MYARCH=$MYARCH"
+
           python -m p_getInfo
           
       - name: Upload Python artifacts
