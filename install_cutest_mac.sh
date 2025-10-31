@@ -36,8 +36,7 @@ fi
 echo
 echo "[3/4] Installing CUTEst and dependencies..."
 brew tap optimizers/cutest
-brew install cutest
-brew install mastsif || echo "Warning: unable to install mastsif (optional)."
+brew install archdefs sifdecode mastsif cutest
 
 # Step 4. Update shell configuration (~/.bashrc)
 echo
