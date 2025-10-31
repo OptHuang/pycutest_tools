@@ -38,7 +38,7 @@ jobs:
           brew install cutest
           brew install mastsif
 
-          for f in archdefs mastsif sifdecode cutest
+          for f in mastsif sifdecode cutest
           do
             source "$(brew --prefix "$f")/$f.bashrc"
           done
