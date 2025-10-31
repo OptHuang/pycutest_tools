@@ -49,35 +49,143 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Resolve CUTEst env from Homebrew (no rc files)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOMEBREW_NO_ANALYTICS=1
+
+          CUTEST_PREFIX="$(brew --prefix cutest 2>/dev/null || true)"
+          SIFDECODE_PREFIX="$(brew --prefix sifdecode 2>/dev/null || true)"
+          MASTSIF_PREFIX="$(brew --prefix mastsif 2>/dev/null || true)"
+
+          if [ -z "$CUTEST_PREFIX" ]; then
+            echo "cutest not found; installing..."
+            brew tap optimizers/cutest
+            brew install cutest
+            CUTEST_PREFIX="$(brew --prefix cutest)"
+          fi
+
+          CUTEST_PATH=""
+          if [ -n "$CUTEST_PREFIX" ]; then
+            if [ -d "$CUTEST_PREFIX/lib" ]; then
+              CUTEST_PATH="$CUTEST_PREFIX"
+            elif [ -d "$CUTEST_PREFIX/share/cutest/lib" ]; then
+              CUTEST_PATH="$CUTEST_PREFIX/share/cutest"
+            else
+              CELLAR="$(brew --cellar cutest 2>/dev/null || true)"
+              if [ -n "$CELLAR" ]; then
+                CANDIDATE="$(ls -1d "$CELLAR"/* 2>/dev/null | sort -V | tail -n1 || true)"
+                if [ -n "$CANDIDATE" ] && [ -d "$CANDIDATE/lib" ]; then
+                  CUTEST_PATH="$CANDIDATE"
+                fi
+              fi
+            fi
+          fi
+
+          if [ -z "$CUTEST_PATH" ]; then
+            echo "Failed to locate CUTEst lib directory under Homebrew prefixes."
+            echo "Debug:"
+            echo "  CUTEST_PREFIX=${CUTEST_PREFIX:-<empty>}"
+            [ -n "$CUTEST_PREFIX" ] && (ls -la "$CUTEST_PREFIX" || true)
+            exit 1
+          fi
+
+          SIFDECODE_PATH=""
+          if [ -n "$SIFDECODE_PREFIX" ]; then
+            if [ -d "$SIFDECODE_PREFIX/share/sifdecode" ]; then
+              SIFDECODE_PATH="$SIFDECODE_PREFIX/share/sifdecode"
+            else
+              SIFDECODE_PATH="$SIFDECODE_PREFIX"
+            fi
+          fi
+
+          MASTSIF_PATH=""
+          if [ -n "$MASTSIF_PREFIX" ]; then
+            if [ -d "$MASTSIF_PREFIX/share/mastsif" ]; then
+              MASTSIF_PATH="$MASTSIF_PREFIX/share/mastsif"
+            else
+              MASTSIF_PATH="$MASTSIF_PREFIX"
+            fi
+          fi
+
+          MYARCH_GUESS="$(find "$CUTEST_PATH/lib" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | head -n1 || true)"
+          if [ -z "$MYARCH_GUESS" ]; then
+            echo "Could not detect MYARCH under $CUTEST_PATH/lib"
+            echo "Listing $CUTEST_PATH/lib for debugging:"
+            ls -la "$CUTEST_PATH/lib" || true
+          fi
+
+          {
+            echo "CUTEST=$CUTEST_PATH"
+            [ -n "$SIFDECODE_PATH" ] && echo "SIFDECODE=$SIFDECODE_PATH"
+            [ -n "$MASTSIF_PATH" ] && echo "MASTSIF=$MASTSIF_PATH"
+            [ -n "$MYARCH_GUESS" ] && echo "MYARCH=$MYARCH_GUESS"
+          } >> "$GITHUB_ENV"
+
+          echo "Resolved env:"
+          echo "  CUTEST=$CUTEST_PATH"
+          echo "  SIFDECODE=${SIFDECODE_PATH:-<empty>}"
+          echo "  MASTSIF=${MASTSIF_PATH:-<empty>}"
+          echo "  MYARCH=${MYARCH_GGESS:-$MYARCH_GUESS}"
+
+          if ! command -v gfortran &>/dev/null; then
+            brew install gcc
+          fi
+      
       - name: Run Python script
         shell: bash
         run: |
           set -euo pipefail
 
-          # Source CUTEst-related bashrc files
-          for f in mastsif sifdecode cutest; do
-            rc="$(brew --prefix "$f")/$f.bashrc"
-            if [ -f "$rc" ]; then
-              # shellcheck disable=SC1090
-              source "$rc"
-            fi
-          done
-
-          # Set MYARCH if not set
-          if [ -z "${MYARCH:-}" ] && [ -n "${CUTEST:-}" ] && [ -d "$CUTEST/lib" ]; then
-            first_arch="$(find "$CUTEST/lib" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | head -n1 || true)"
-            if [ -n "$first_arch" ]; then
-              export MYARCH="$first_arch"
+          if [ -z "${CUTEST:-}" ]; then
+            CUTEST_PREFIX="$(brew --prefix cutest 2>/dev/null || true)"
+            if [ -n "$CUTEST_PREFIX" ]; then
+              if [ -d "$CUTEST_PREFIX/lib" ]; then
+                export CUTEST="$CUTEST_PREFIX"
+              elif [ -d "$CUTEST_PREFIX/share/cutest/lib" ]; then
+                export CUTEST="$CUTEST_PREFIX/share/cutest"
+              fi
             fi
           fi
 
-          echo "Using CUTEST=${CUTEST:-}"
-          echo "Using SIFDECODE=${SIFDECODE:-}"
-          echo "Using MASTSIF=${MASTSIF:-}"
-          echo "Using MYARCH=${MYARCH:-}"
+          if [ -z "${SIFDECODE:-}" ]; then
+            P="$(brew --prefix sifdecode 2>/dev/null || true)"
+            [ -n "$P" ] && [ -d "$P/share/sifdecode" ] && export SIFDECODE="$P/share/sifdecode"
+          fi
+          if [ -z "${MASTSIF:-}" ]; then
+            P="$(brew --prefix mastsif 2>/dev/null || true)"
+            [ -n "$P" ] && [ -d "$P/share/mastsif" ] && export MASTSIF="$P/share/mastsif"
+          fi
+
+          if [ -z "${MYARCH:-}" ] && [ -n "${CUTEST:-}" ] && [ -d "$CUTEST/lib" ]; then
+            export MYARCH="$(find "$CUTEST/lib" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | head -n1 || true)"
+          fi
+
+          echo "Using CUTEST=${CUTEST:-<empty>}"
+          echo "Using SIFDECODE=${SIFDECODE:-<empty>}"
+          echo "Using MASTSIF=${MASTSIF:-<empty>}"
+          echo "Using MYARCH=${MYARCH:-<empty>}"
 
           python -m p_getInfo
 
+      - name: Debug CUTEst layout
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "brew --prefix cutest: $(brew --prefix cutest 2>/dev/null || echo '<none>')"
+          echo "brew --cellar cutest: $(brew --cellar cutest 2>/dev/null || echo '<none>')"
+          P="$(brew --prefix cutest 2>/dev/null || true)"
+          if [ -n "$P" ]; then
+            echo "Tree under $P (depth 2):"
+            (command -v tree >/dev/null || brew install tree) && tree -L 2 "$P" || ls -R "$P" | sed -n '1,200p'
+            if [ -d "$P/share/cutest" ]; then
+              echo "Tree under $P/share/cutest (depth 2):"
+              tree -L 2 "$P/share/cutest"
+            fi
+          fi
+      
       - name: Upload Python artifacts
         uses: actions/upload-artifact@v4
         with:
