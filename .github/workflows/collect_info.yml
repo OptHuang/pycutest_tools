@@ -49,12 +49,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Resolve CUTEst env from Homebrew (no rc files)
+      - name: Resolve CUTEst env from Homebrew (with compatibility shim)
         shell: bash
         run: |
           set -euo pipefail
+          # 关闭匿名统计（可选；参考 Homebrew 文档）
           export HOMEBREW_NO_ANALYTICS=1
 
+          # 1) 定位前缀
           CUTEST_PREFIX="$(brew --prefix cutest 2>/dev/null || true)"
           SIFDECODE_PREFIX="$(brew --prefix sifdecode 2>/dev/null || true)"
           MASTSIF_PREFIX="$(brew --prefix mastsif 2>/dev/null || true)"
@@ -65,74 +67,71 @@ jobs:
             brew install cutest
             CUTEST_PREFIX="$(brew --prefix cutest)"
           fi
-
-          CUTEST_PATH=""
-          if [ -n "$CUTEST_PREFIX" ]; then
-            if [ -d "$CUTEST_PREFIX/lib" ]; then
-              CUTEST_PATH="$CUTEST_PREFIX"
-            elif [ -d "$CUTEST_PREFIX/share/cutest/lib" ]; then
-              CUTEST_PATH="$CUTEST_PREFIX/share/cutest"
-            else
-              CELLAR="$(brew --cellar cutest 2>/dev/null || true)"
-              if [ -n "$CELLAR" ]; then
-                CANDIDATE="$(ls -1d "$CELLAR"/* 2>/dev/null | sort -V | tail -n1 || true)"
-                if [ -n "$CANDIDATE" ] && [ -d "$CANDIDATE/lib" ]; then
-                  CUTEST_PATH="$CANDIDATE"
-                fi
-              fi
-            fi
-          fi
-
-          if [ -z "$CUTEST_PATH" ]; then
-            echo "Failed to locate CUTEst lib directory under Homebrew prefixes."
-            echo "Debug:"
-            echo "  CUTEST_PREFIX=${CUTEST_PREFIX:-<empty>}"
-            [ -n "$CUTEST_PREFIX" ] && (ls -la "$CUTEST_PREFIX" || true)
+          CUTEST_PATH="$CUTEST_PREFIX"  # Homebrew 的 opt 路径
+          if [ ! -d "$CUTEST_PATH/lib" ]; then
+            echo "CUTEST lib directory not found under $CUTEST_PATH"
             exit 1
           fi
 
+          # 2) SIFDECODE/MASTSIF 路径
           SIFDECODE_PATH=""
-          if [ -n "$SIFDECODE_PREFIX" ]; then
-            if [ -d "$SIFDECODE_PREFIX/share/sifdecode" ]; then
-              SIFDECODE_PATH="$SIFDECODE_PREFIX/share/sifdecode"
-            else
-              SIFDECODE_PATH="$SIFDECODE_PREFIX"
-            fi
-          fi
-
+          [ -n "$SIFDECODE_PREFIX" ] && [ -d "$SIFDECODE_PREFIX/share/sifdecode" ] && SIFDECODE_PATH="$SIFDECODE_PREFIX/share/sifdecode"
           MASTSIF_PATH=""
-          if [ -n "$MASTSIF_PREFIX" ]; then
-            if [ -d "$MASTSIF_PREFIX/share/mastsif" ]; then
-              MASTSIF_PATH="$MASTSIF_PREFIX/share/mastsif"
-            else
-              MASTSIF_PATH="$MASTSIF_PREFIX"
+          [ -n "$MASTSIF_PREFIX" ] && [ -d "$MASTSIF_PREFIX/share/mastsif" ] && MASTSIF_PATH="$MASTSIF_PREFIX/share/mastsif"
+
+          # 3) 兼容层：若 CUTEST/lib 下没有任何子目录，则创建一个，并链接到 double 精度库
+          has_subdir="$(find "$CUTEST_PATH/lib" -mindepth 1 -maxdepth 1 -type d | head -n1 || true)"
+          MYARCH_VALUE=""
+          if [ -z "$has_subdir" ]; then
+            compat_dir="$CUTEST_PATH/lib/homebrew"
+            mkdir -p "$compat_dir"
+            # 选择 double 精度作为默认
+            if [ -f "$CUTEST_PATH/lib/libcutest_double.dylib" ]; then
+              ln -sfn ../libcutest_double.dylib "$compat_dir/libcutest.dylib"
             fi
+            if [ -f "$CUTEST_PATH/lib/libcutest_double.a" ]; then
+              ln -sfn ../libcutest_double.a "$compat_dir/libcutest.a"
+            fi
+            # 兜底：若 double 不存在，尝试 single
+            if [ ! -e "$compat_dir/libcutest.dylib" ] && [ -f "$CUTEST_PATH/lib/libcutest_single.dylib" ]; then
+              ln -sfn ../libcutest_single.dylib "$compat_dir/libcutest.dylib"
+            fi
+            if [ ! -e "$compat_dir/libcutest.a" ] && [ -f "$CUTEST_PATH/lib/libcutest_single.a" ]; then
+              ln -sfn ../libcutest_single.a "$compat_dir/libcutest.a"
+            fi
+
+            # 校验
+            if [ ! -e "$compat_dir/libcutest.dylib" ] && [ ! -e "$compat_dir/libcutest.a" ]; then
+              echo "Failed to create compatibility symlinks in $compat_dir"
+              ls -la "$CUTEST_PATH/lib" || true
+              exit 1
+            fi
+
+            MYARCH_VALUE="homebrew"
+          else
+            # 若原本就有子目录，沿用第一个即可
+            MYARCH_VALUE="$(basename "$has_subdir")"
           fi
 
-          MYARCH_GUESS="$(find "$CUTEST_PATH/lib" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | head -n1 || true)"
-          if [ -z "$MYARCH_GUESS" ]; then
-            echo "Could not detect MYARCH under $CUTEST_PATH/lib"
-            echo "Listing $CUTEST_PATH/lib for debugging:"
-            ls -la "$CUTEST_PATH/lib" || true
-          fi
-
+          # 4) 持久化环境变量
           {
             echo "CUTEST=$CUTEST_PATH"
             [ -n "$SIFDECODE_PATH" ] && echo "SIFDECODE=$SIFDECODE_PATH"
             [ -n "$MASTSIF_PATH" ] && echo "MASTSIF=$MASTSIF_PATH"
-            [ -n "$MYARCH_GUESS" ] && echo "MYARCH=$MYARCH_GUESS"
+            echo "MYARCH=$MYARCH_VALUE"
           } >> "$GITHUB_ENV"
 
           echo "Resolved env:"
           echo "  CUTEST=$CUTEST_PATH"
           echo "  SIFDECODE=${SIFDECODE_PATH:-<empty>}"
           echo "  MASTSIF=${MASTSIF_PATH:-<empty>}"
-          echo "  MYARCH=${MYARCH_GGESS:-$MYARCH_GUESS}"
+          echo "  MYARCH=$MYARCH_VALUE"
 
+          # 编译期可能需要 gfortran
           if ! command -v gfortran &>/dev/null; then
             brew install gcc
           fi
-      
+
       - name: Run Python script
         shell: bash
         run: |
