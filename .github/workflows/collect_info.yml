@@ -58,7 +58,7 @@ jobs:
 
       - name: Run Python script
         run: |
-          for f in archdefs mastsif sifdecode cutest
+          for f in mastsif sifdecode cutest
           do
             rc="$(brew --prefix "$f")/$f.bashrc"
             if [ -f "$rc" ]; then

@@ -36,12 +36,12 @@ fi
 echo
 echo "[3/4] Installing CUTEst and dependencies..."
 brew tap optimizers/cutest
-brew install archdefs sifdecode mastsif cutest
+brew install sifdecode mastsif cutest
 
 # Step 4. Update shell configuration (~/.bashrc)
 echo
 echo "[4/4] Configuring CUTEst environment..."
-for f in archdefs mastsif sifdecode cutest; do
+for f in mastsif sifdecode cutest; do
   prefix="$(brew --prefix "$f" 2>/dev/null || true)"
   if [ -n "$prefix" ] && [ -f "$prefix/$f.bashrc" ]; then
     line=". \"$prefix/$f.bashrc\""
