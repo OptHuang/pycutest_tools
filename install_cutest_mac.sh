@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
 # install_cutest_mac.sh
-# Install CUTEst on macOS using Homebrew (plain text version)
-
-set -e
-set -o pipefail
+set -euo pipefail
 
 echo "=========================================================="
 echo "Installing CUTEst on macOS"
 echo "=========================================================="
 
-# Step 1. Ensure Command Line Tools
+# 1) Xcode CLT
 echo
 echo "[1/4] Checking for Xcode Command Line Tools..."
 if ! xcode-select -p &>/dev/null; then
@@ -23,7 +20,7 @@ else
   echo "Command Line Tools already installed."
 fi
 
-# Step 2. Install or update Homebrew
+# 2) Homebrew
 echo
 echo "[2/4] Installing or updating Homebrew..."
 if ! command -v brew &>/dev/null; then
@@ -32,19 +29,20 @@ else
   brew update
 fi
 
-# Step 3. Install CUTEst and dependencies
+# 3) Install CUTEst and dependencies
 echo
 echo "[3/4] Installing CUTEst and dependencies..."
 brew tap optimizers/cutest
-brew install sifdecode mastsif cutest
+brew install archdefs sifdecode mastsif cutest
 
-# Step 4. Update shell configuration (~/.bashrc)
+# 4) Write bashrc
 echo
 echo "[4/4] Configuring CUTEst environment..."
-for f in mastsif sifdecode cutest; do
+for f in archdefs mastsif sifdecode cutest; do
   prefix="$(brew --prefix "$f" 2>/dev/null || true)"
-  if [ -n "$prefix" ] && [ -f "$prefix/$f.bashrc" ]; then
-    line=". \"$prefix/$f.bashrc\""
+  rc="$prefix/$f.bashrc"
+  if [ -n "$prefix" ] && [ -f "$rc" ]; then
+    line=". \"$rc\""
     if ! grep -Fq "$line" ~/.bashrc 2>/dev/null; then
       echo "$line" >> ~/.bashrc
       echo "Added $f configuration to ~/.bashrc"
@@ -52,12 +50,15 @@ for f in mastsif sifdecode cutest; do
   fi
 done
 
+# Source bashrc from bash_profile
+if ! grep -Fq 'source ~/.bashrc' ~/.bash_profile 2>/dev/null; then
+  echo 'source ~/.bashrc' >> ~/.bash_profile
+fi
+
 echo
 echo "=========================================================="
 echo "CUTEst installation complete."
 echo "Next steps:"
 echo "1. Run: source ~/.bashrc"
 echo "2. Verify with: cutest -v"
-echo
-echo "If you are using Anaconda, ensure '~/.bashrc' is sourced inside your environment."
 echo "=========================================================="

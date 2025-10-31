@@ -1,11 +1,5 @@
 name: Collect Info
 
-# This workflow do the following:
-# 1. Checkout the repository
-# 2. Git clone inside the repository: git clone --recurse-submodules git@github.com:optiprofiler/optiprofiler.git --branch python
-# 3. Go to this repository root and run python script 's_get_para.py'
-# 4. Upload 'probinfo_pycutest.csv', 'probinfo_pycutest.mat','probinfo_pycutest.txt', 'feasibility_pycutest.txt', and 'log_pycutest.txt' as artifacts
-
 on:
   push:
     branches:
@@ -15,59 +9,106 @@ jobs:
   build:
     runs-on: macos-latest
     timeout-minutes: 360
-    # runs-on: self-hosted
-    # timeout-minutes: 1440
-
-    # strategy:
-    #     matrix:
-    #         language: [python]
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
+          check-latest: true
 
       - name: Install CUTEst via custom script
+        shell: bash
         run: |
+          set -euo pipefail
           chmod +x ./install_cutest_mac.sh
           ./install_cutest_mac.sh
-          source ~/.bashrc
 
       - name: Install PyCUTEst
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install pycutest
-      
+
       - name: Checkout OptiProfiler
         uses: actions/checkout@v4
         with:
           repository: optiprofiler/optiprofiler
           path: optiprofiler
-          submodules: recursive 
+          submodules: recursive
           ref: python
 
       - name: Install Python dependencies
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Python script
+      - name: Prepare CUTEst env for subsequent steps (persist to GITHUB_ENV)
+        shell: bash
         run: |
-          for f in mastsif sifdecode cutest
-          do
+          set -euo pipefail
+          for f in archdefs mastsif sifdecode cutest; do
             rc="$(brew --prefix "$f")/$f.bashrc"
             if [ -f "$rc" ]; then
+              # shellcheck disable=SC1090
               source "$rc"
             fi
           done
-          export MYARCH=pc64.mac.gfo
+          CUTEST_PREFIX="$(brew --prefix cutest)"
+          first_arch="$(find "$CUTEST_PREFIX/lib" -mindepth 1 -maxdepth 1 -type d -print -quit || true)"
+          if [ -z "$first_arch" ]; then
+            echo "Cannot detect MYARCH from $CUTEST_PREFIX/lib"
+            exit 1
+          fi
+          MYARCH_DETECTED="$(basename "$first_arch")"
+
+          echo "CUTEST=$CUTEST"       >> "$GITHUB_ENV"
+          echo "SIFDECODE=$SIFDECODE" >> "$GITHUB_ENV"
+          echo "MASTSIF=$MASTSIF"     >> "$GITHUB_ENV"
+          echo "MYARCH=$MYARCH_DETECTED" >> "$GITHUB_ENV"
+
+          echo "Detected CUTEST env:"
+          echo "  CUTEST=$CUTEST"
+          echo "  SIFDECODE=$SIFDECODE"
+          echo "  MASTSIF=$MASTSIF"
+          echo "  MYARCH=$MYARCH_DETECTED"
+
+      - name: Run Python script
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in archdefs mastsif sifdecode cutest; do
+            rc="$(brew --prefix "$f")/$f.bashrc"
+            if [ -f "$rc" ]; then
+              # shellcheck disable=SC1090
+              source "$rc"
+            fi
+          done
+
+          if [ -z "${MYARCH:-}" ]; then
+            CUTEST_PREFIX="$(brew --prefix cutest)"
+            first_arch="$(find "$CUTEST_PREFIX/lib" -mindepth 1 -maxdepth 1 -type d -print -quit || true)"
+            if [ -n "$first_arch" ]; then
+              export MYARCH="$(basename "$first_arch")"
+            else
+              echo "Failed to auto-detect MYARCH under $CUTEST_PREFIX/lib"
+              exit 1
+            fi
+          fi
+
+          echo "Using CUTEST=$CUTEST"
+          echo "Using SIFDECODE=$SIFDECODE"
+          echo "Using MASTSIF=$MASTSIF"
+          echo "Using MYARCH=$MYARCH"
+
           python -m p_getInfo
-          
+
       - name: Upload Python artifacts
         uses: actions/upload-artifact@v4
         with:
