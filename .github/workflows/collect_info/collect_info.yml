@@ -1,0 +1,45 @@
+name: Collect Info
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          check-latest: true
+
+      - name: Setup CUTEst and dependencies
+        run: bash .github/actions/collect_info/setup.sh
+
+      - name: Checkout OptiProfiler
+        uses: actions/checkout@v4
+        with:
+          repository: optiprofiler/optiprofiler
+          path: optiprofiler
+          submodules: recursive
+          ref: python
+
+      - name: Run Python script
+        run: python p_getInfo.py
+      
+      - name: Upload Python artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: probinfo-files-pycutest
+          path: |
+            probinfo_pycutest.csv
+            feasibility_pycutest.txt
+            timeout_problems_pycutest.txt
+            log_pycutest.txt
