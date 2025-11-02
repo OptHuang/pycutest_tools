@@ -26,7 +26,7 @@ timeout = 50
 problem_names = pycutest_select()
 
 # Exclude some problems
-problem_exclude = ['AIRPORT', 'A0ENDNDL', 'A0ENINDL', 'A0ENSNDL', 'A0ESDNDL', 'A0ESINDL', 'A0ESSNDL', 'A0NNDNDL', 'A0NNDNIL', 'A0NNDNSL', 'A0NNSNSL', 'A0NSDSDL', 'A0NSDSDS', 'A0NSDSIL', 'A0NSDSSL', 'A0NSSSSL', 'A2ENDNDL', 'A2ENINDL', 'A2ENSNDL', 'A2ESDNDL', 'A2ESINDL', 'A2ESSNDL', 'A2NNDNDL', 'A2NNDNIL', 'A2NNDNSL', 'A2NNSNSL', 'A2NSDSDL', 'A2NSDSIL', 'A2NSDSSL', 'A2NSSSSL', 'A4X12', 'A5ENDNDL', 'A5ENINDL', 'A5ENSNDL', 'A5ESDNDL', 'A5ESINDL', 'A5ESSNDL', 'A5NNDNDL', 'A5NNDNIL', 'A5NNDNSL', 'A5NNSNSL', 'A5NSDSDL', 'A5NSDSDM', 'A5NSDSIL', 'A5NSDSSL', 'A5NSSNSM', 'A5NSSSSL']
+problem_exclude = ['A0ENDNDL', 'AIRPORT', 'ALLINQP']
 problem_names = [name for name in problem_names if name not in problem_exclude]
 problem_names.sort()
 print(problem_names)
@@ -133,8 +133,8 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
         'm_nonlinear_eqs': '',
         'f0s': ''}
     try:
-        # p = run_with_timeout(pycutest_load, (problem_name,), timeout)
-        p = pycutest_load(problem_name)
+        p = run_with_timeout(pycutest_load, (problem_name,), timeout)
+        # p = pycutest_load(problem_name)
     except TimeoutError:
         print(f"Timeout while loading problem {problem_name}.")
         timeout_problems.append(problem_name)
@@ -316,8 +316,8 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
     for comb in nondefault_para_combinations:
         print(f"Processing problem {problem_name} with parameter combination: {comb}")
         try:
-            # success, result = run_with_timeout(process_arg, (problem_name, dict(zip(para_names, comb))), timeout)
-            success, result = process_arg(problem_name, dict(zip(para_names, comb)))
+            success, result = run_with_timeout(process_arg, (problem_name, dict(zip(para_names, comb))), timeout)
+            # success, result = process_arg(problem_name, dict(zip(para_names, comb)))
             if not success or result is None:
                 print(f"Failed to process problem {problem_name} with parameter combination: {comb}")
                 continue
