@@ -4,9 +4,8 @@ import os
 import sys
 import numpy as np
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
-from multiprocessing import Process, Queue
-import signal
+from concurrent.futures import TimeoutError
+import threading
 
 
 
@@ -66,17 +65,26 @@ sys.stdout = Logger(log_file)
 sys.stderr = Logger(log_file)
 
 def run_with_timeout(func, args, timeout_seconds):
-    def handler(signum, frame):
-        raise TimeoutError(f"Function timed out after {timeout_seconds} seconds")
-
-    signal.signal(signal.SIGALRM, handler)
-    signal.alarm(timeout_seconds)
+    result = [None]
+    exception = [None]
     
-    try:
-        result = func(*args) if args else func()
-        return result
-    finally:
-        signal.alarm(0)
+    def wrapper():
+        try:
+            result[0] = func(*args) if args else func()
+        except Exception as e:
+            exception[0] = e
+    
+    thread = threading.Thread(target=wrapper, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout_seconds)
+    
+    if thread.is_alive():
+        raise TimeoutError(f"Function timed out after {timeout_seconds} seconds")
+    
+    if exception[0] is not None:
+        raise exception[0]
+    
+    return result[0]
 
 
 # Define a function to get information about a problem
@@ -405,4 +413,3 @@ if __name__ == "__main__":
 
     sys.stdout = sys.__stdout__  # Reset stdout to default
     sys.stderr = sys.__stderr__  # Reset stderr to default
-
