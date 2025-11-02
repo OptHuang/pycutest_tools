@@ -26,7 +26,7 @@ timeout = 50
 problem_names = pycutest_select()
 
 # Exclude some problems
-problem_exclude = []
+problem_exclude = ['A0ENDNDL', 'A0ENINDL', 'A0ENSNDL', 'A0ESDNDL', 'A0ESINDL', 'A0ESSNDL', 'A0NNDNDL', 'A0NNDNIL', 'A0NNDNSL', 'A0NNSNSL', 'A0NSDSDL', 'A0NSDSDS', 'A0NSDSIL', 'A0NSDSSL', 'A0NSSSSL', 'A2ENDNDL', 'A2ENINDL', 'A2ENSNDL', 'A2ESDNDL', 'A2ESINDL', 'A2ESSNDL', 'A2NNDNDL', 'A2NNDNIL', 'A2NNDNSL', 'A2NNSNSL', 'A2NSDSDL', 'A2NSDSIL', 'A2NSDSSL', 'A2NSSSSL', 'A4X12', 'A5ENDNDL', 'A5ENINDL', 'A5ENSNDL', 'A5ESDNDL', 'A5ESINDL', 'A5ESSNDL', 'A5NNDNDL', 'A5NNDNIL', 'A5NNDNSL', 'A5NNSNSL', 'A5NSDSDL', 'A5NSDSDM', 'A5NSDSIL', 'A5NSDSSL', 'A5NSSNSM', 'A5NSSSSL']
 problem_names = [name for name in problem_names if name not in problem_exclude]
 problem_names.sort()
 print(problem_names)
