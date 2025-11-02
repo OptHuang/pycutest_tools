@@ -375,7 +375,12 @@ if __name__ == "__main__":
     # Save problem information into a csv file
     results = []
     for name in problem_names:
+        print(f">>> STARTING: {name}")
+        sys.stdout.flush()
+        
         para_names, para_values, para_defaults = pycutest_get_sif_params(name)
+        print(f"Processing problem: {name}")
+
         info = get_problem_info(name, known_feasibility, para_names=para_names, para_values=para_values, para_defaults=para_defaults)
         results.append(info)
         sys.stdout.flush()
