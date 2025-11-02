@@ -20,13 +20,13 @@ sys.path.append(os.path.join(cwd, 'optiprofiler', 'problems'))
 from problems.pycutest.pycutest_tools import pycutest_load, pycutest_select, pycutest_get_sif_params
 
 # Set the timeout (seconds) for each problem to be loaded
-timeout = 50
+timeout = 3
 
 # Collect the names of the problems
 problem_names = pycutest_select()
 
 # Exclude some problems
-problem_exclude = ['A0ENDNDL', 'A0ENINDL', 'AIRPORT', 'ALLINQP']
+problem_exclude = ['A0ENSNDL', 'A0ESDNDL', 'A0ESINDL', 'A0ESSNDL', 'A0NNDNDL', 'A0NNDNIL', 'A0NNDNSL', 'A0NNSNSL', 'A0NSDSDL', 'A0NSDSDS', 'A0NSDSIL', 'A0NSDSSL', 'A0NSSSSL']
 problem_names = [name for name in problem_names if name not in problem_exclude]
 problem_names.sort()
 print(problem_names)
