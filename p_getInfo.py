@@ -133,7 +133,8 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
         'm_nonlinear_eqs': '',
         'f0s': ''}
     try:
-        p = run_with_timeout(pycutest_load, (problem_name,), timeout)
+        # p = run_with_timeout(pycutest_load, (problem_name,), timeout)
+        p = pycutest_load(problem_name)
     except TimeoutError:
         print(f"Timeout while loading problem {problem_name}.")
         timeout_problems.append(problem_name)
@@ -160,7 +161,7 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
         print(f"Error while getting problem info for {problem_name}: {e}")
 
     try:
-        f = run_with_timeout(p.fun, (p.x0,), timeout)
+        f = p.fun(p.x0)
         if problem_name == 'LIN':
             info_single['isfeasibility'] = 0
         elif np.size(f) == 0 or np.isnan(f) or problem_name in known_feasibility:
@@ -185,7 +186,7 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
         info_single['ishess'] = 1
     else:
         try:
-            g = run_with_timeout(p.grad, (p.x0,), timeout)
+            g = p.grad(p.x0)
             if g.size == 0:
                 info_single['isgrad'] = 0
             else:
@@ -194,7 +195,7 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
             print(f"Error while evaluating gradient for {problem_name}: {e}")
             info_single['isgrad'] = 0
         try:
-            h = run_with_timeout(p.hess, (p.x0,), timeout)
+            h = p.hess(p.x0)
             if h.size == 0:
                 info_single['ishess'] = 0
             else:
@@ -204,7 +205,7 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
             info_single['ishess'] = 0
     
     try:
-        jc = run_with_timeout(p.jcub, (p.x0,), timeout)
+        jc = p.jcub(p.x0)
         if jc.size == 0:
             info_single['isjcub'] = 0
         else:
@@ -214,7 +215,7 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
         info_single['isjcub'] = 0
     
     try:
-        jc = run_with_timeout(p.jceq, (p.x0,), timeout)
+        jc = p.jceq(p.x0)
         if jc.size == 0:
             info_single['isjceq'] = 0
         else:
@@ -224,7 +225,7 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
         info_single['isjceq'] = 0
     
     try:
-        hc = run_with_timeout(p.hcub, (p.x0,), timeout)
+        hc = p.hcub(p.x0)
         if len(hc) == 0:
             info_single['ishcub'] = 0
         else:
@@ -234,7 +235,7 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
         info_single['ishcub'] = 0
     
     try:
-        hc = run_with_timeout(p.hceq, (p.x0,), timeout)
+        hc = p.hceq(p.x0)
         if len(hc) == 0:
             info_single['ishceq'] = 0
         else:
@@ -315,7 +316,8 @@ def get_problem_info(problem_name, known_feasibility, para_names=None, para_valu
     for comb in nondefault_para_combinations:
         print(f"Processing problem {problem_name} with parameter combination: {comb}")
         try:
-            success, result = run_with_timeout(process_arg, (problem_name, dict(zip(para_names, comb))), timeout)
+            # success, result = run_with_timeout(process_arg, (problem_name, dict(zip(para_names, comb))), timeout)
+            success, result = process_arg(problem_name, dict(zip(para_names, comb)))
             if not success or result is None:
                 print(f"Failed to process problem {problem_name} with parameter combination: {comb}")
                 continue
