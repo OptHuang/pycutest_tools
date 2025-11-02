@@ -32,7 +32,6 @@ export MYARCH=pc64.lnx.gfo
 
 # Install pycutest
 python -m pip install pycutest
-python -m pip install --upgrade pycutest
 
 # Add the benchmarks to the PYTHONPATH
 echo "PYTHONPATH=$PWD/benchmarks:$PYTHONPATH" >> "$GITHUB_ENV"
