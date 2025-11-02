@@ -26,7 +26,18 @@ timeout = 3
 problem_names = pycutest_select()
 
 # Exclude some problems
-problem_exclude = ['A0ENSNDL', 'A0ESDNDL', 'A0ESINDL', 'A0ESSNDL', 'A0NNDNDL', 'A0NNDNIL', 'A0NNDNSL', 'A0NNSNSL', 'A0NSDSDL', 'A0NSDSDS', 'A0NSDSIL', 'A0NSDSSL', 'A0NSSSSL']
+problem_exclude = github_black_list = [
+    'A0ENDNDL', 'A0ENDNDL', 'A0ENINDL', 'A0ENSNDL',
+    'A0ESDNDL', 'A0ESINDL', 'A0ESSNDL', 'A2ENDNDL',
+    'A2ENINDL', 'A2ENINDL', 'A2ENSNDL', 'A2ESDNDL',
+    'A2ESINDL', 'A2ESSNDL', 'A5ENDNDL', 'A5ENINDL',
+    'A5ENSNDL', 'A5ESDNDL', 'A5ESINDL', 'A5ESSNDL',
+    'BRAINPC2', 'CYCLOOCF', 'CYCLOOCT', 'EG3',
+    'LOBSTERZ', 'LUKVLI10', 'LUKVLI16', 'LUKVLI1',
+    'LUKVLI4', 'LUKVLI5', 'LUKVLI8', 'LUKVLI9',
+    'LUKVLE10', 'LUKVLI17', 'LUKVLI18', 'MODBEALENE',
+    'NINE5D', 'OPTMASS', 'ROSEPETAL2'
+]
 problem_names = [name for name in problem_names if name not in problem_exclude]
 problem_names.sort()
 print(problem_names)
